@@ -89,4 +89,128 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+// ============================================================
+// Funciones de consulta para Locales
+// ============================================================
+
+export async function getAllLocals() {
+  const db = await getDb();
+  if (!db) return [];
+  const { locals } = await import("../drizzle/schema");
+  return await db.select().from(locals);
+}
+
+export async function getLocalById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const { locals } = await import("../drizzle/schema");
+  const result = await db.select().from(locals).where(eq(locals.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function createLocal(data: { name: string; address?: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const { locals } = await import("../drizzle/schema");
+  const result = await db.insert(locals).values(data);
+  return result;
+}
+
+// ============================================================
+// Funciones de consulta para Informes (Reports)
+// ============================================================
+
+export async function getAllReports() {
+  const db = await getDb();
+  if (!db) return [];
+  const { reports } = await import("../drizzle/schema");
+  return await db.select().from(reports);
+}
+
+export async function getReportById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const { reports } = await import("../drizzle/schema");
+  const result = await db.select().from(reports).where(eq(reports.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function getReportsByLocalId(localId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const { reports } = await import("../drizzle/schema");
+  return await db.select().from(reports).where(eq(reports.localId, localId));
+}
+
+export async function createReport(data: {
+  localId: number;
+  userId: number;
+  reportDate: Date;
+  inputType: "text" | "pdf" | "excel";
+  rawContent?: string;
+  fileUrl?: string;
+  fileName?: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const { reports } = await import("../drizzle/schema");
+  const result = await db.insert(reports).values(data);
+  return result;
+}
+
+// ============================================================
+// Funciones de consulta para Puntuaciones (Scores)
+// ============================================================
+
+export async function getScoreByReportId(reportId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const { scores } = await import("../drizzle/schema");
+  const result = await db.select().from(scores).where(eq(scores.reportId, reportId)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function createScore(data: {
+  reportId: number;
+  autoScore?: number;
+  finalScore?: number;
+  criteriaScores?: string;
+  aiSource?: string;
+  isOverridden?: number;
+  overrideReason?: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const { scores } = await import("../drizzle/schema");
+  const result = await db.insert(scores).values(data);
+  return result;
+}
+
+export async function updateScore(reportId: number, data: {
+  finalScore?: number;
+  isOverridden?: number;
+  overrideReason?: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const { scores } = await import("../drizzle/schema");
+  const result = await db.update(scores).set(data).where(eq(scores.reportId, reportId));
+  return result;
+}
+
+// ============================================================
+// Funciones de consulta para Audit Log
+// ============================================================
+
+export async function createAuditLog(data: {
+  reportId?: number;
+  userId?: number;
+  action: string;
+  details?: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const { auditLog } = await import("../drizzle/schema");
+  const result = await db.insert(auditLog).values(data);
+  return result;
+}
