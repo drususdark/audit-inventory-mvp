@@ -2,12 +2,14 @@
  * Módulo de Scoring con IA (Multi-Proveedor)
  * 
  * Soporta múltiples proveedores de IA configurables mediante variables de entorno:
- * - Groq (recomendado, gratuito y rápido)
+ * - DeepSeek (recomendado, gratuito)
+ * - Groq (gratuito y rápido)
  * - Google Gemini
  * - OpenAI
  * 
  * Configuración mediante variables de entorno:
- * - AI_PROVIDER: "groq" | "gemini" | "openai" (default: "groq")
+ * - AI_PROVIDER: "deepseek" | "groq" | "gemini" | "openai" (default: "deepseek")
+ * - DEEPSEEK_API_KEY: API key de DeepSeek
  * - GROQ_API_KEY: API key de Groq
  * - GEMINI_API_KEY: API key de Google Gemini
  * - OPENAI_API_KEY: API key de OpenAI
@@ -79,9 +81,9 @@ const SCORING_CRITERIA = [
 // Configuración de Proveedores
 // ============================================================
 
-type AIProvider = "groq" | "gemini" | "openai";
+type AIProvider = "deepseek" | "groq" | "gemini" | "openai";
 
-const AI_PROVIDER = (process.env.AI_PROVIDER || "groq") as AIProvider;
+const AI_PROVIDER = (process.env.AI_PROVIDER || "deepseek") as AIProvider;
 
 // ============================================================
 // Función Principal de Scoring
@@ -102,6 +104,9 @@ export async function scoreReportWithAI(
     let result: ScoringResult;
 
     switch (AI_PROVIDER) {
+      case "deepseek":
+        result = await scoreWithDeepSeek(reportText);
+        break;
       case "groq":
         result = await scoreWithGroq(reportText);
         break;
@@ -127,6 +132,57 @@ export async function scoreReportWithAI(
     // Fallback a lógica heurística
     return scoreReportWithHeuristic(reportText);
   }
+}
+
+// ============================================================
+// Implementación: DeepSeek
+// ============================================================
+
+async function scoreWithDeepSeek(reportText: string): Promise<ScoringResult> {
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+  if (!apiKey) {
+    throw new Error("DEEPSEEK_API_KEY no está configurada");
+  }
+
+  const prompt = buildScoringPrompt(reportText);
+
+  const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "deepseek-chat",
+      messages: [
+        {
+          role: "system",
+          content:
+            "Eres un analista de riesgos de inventario. Debes devolver la respuesta únicamente en formato JSON válido, sin texto adicional.",
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.3,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`DeepSeek API error: ${response.status} - ${errorText}`);
+  }
+
+  const data = await response.json();
+  const content = data.choices[0]?.message?.content;
+
+  if (!content) {
+    throw new Error("No se recibió respuesta de DeepSeek");
+  }
+
+  return JSON.parse(content);
 }
 
 // ============================================================
