@@ -28,18 +28,8 @@ export function createApp() {
     })
   );
 
-  // Serve static files in production
-  if (process.env.NODE_ENV === "production" || process.env.VERCEL) {
-    const clientDistPath = path.join(__dirname, "../client/dist");
-    app.use(express.static(clientDistPath));
-    
-    // SPA fallback - serve index.html for all non-API routes
-    app.get("*", (req, res) => {
-      if (!req.path.startsWith("/api")) {
-        res.sendFile(path.join(clientDistPath, "index.html"));
-      }
-    });
-  }
+  // In Vercel, static files and SPA routing are handled by the platform
+  // Express only handles API routes
 
   return app;
 }
