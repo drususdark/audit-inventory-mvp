@@ -6,16 +6,7 @@ import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 export const appRouter = router({
   system: systemRouter,
 
-  auth: router({
-    me: publicProcedure.query(opts => opts.ctx.user),
-    logout: publicProcedure.mutation(({ ctx }) => {
-      const cookieOptions = getSessionCookieOptions(ctx.req);
-      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
-      return {
-        success: true,
-      } as const;
-    }),
-  }),
+  // Auth routers removed - app is now public without authentication
 
   // ============================================================
   // Router de Locales
