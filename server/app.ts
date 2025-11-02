@@ -28,8 +28,14 @@ export function createApp() {
     })
   );
 
-  // In Vercel, static files and SPA routing are handled by the platform
-  // Express only handles API routes
+  // Serve static files and handle SPA routing
+  const staticDir = path.join(__dirname, "../dist/public");
+  app.use(express.static(staticDir));
+  
+  // SPA fallback - serve index.html for all non-API routes
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(staticDir, "index.html"));
+  });
 
   return app;
 }
