@@ -21,7 +21,8 @@ import { Link } from "wouter";
 
 export default function Dashboard() {
   const { user, isAuthenticated } = useAuth();
-  const { data: rankedLocals, isLoading } = trpc.ranking.getAll.useQuery();
+  const { data: locals, isLoading: localsLoading } = trpc.locals.list.useQuery();
+  const { data: reports, isLoading: reportsLoading } = trpc.reports.list.useQuery();
 
   if (!isAuthenticated) {
     return (
@@ -43,13 +44,28 @@ export default function Dashboard() {
     );
   }
 
-  if (isLoading) {
+  if (localsLoading || reportsLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p>Cargando...</p>
       </div>
     );
   }
+
+  // Calcular promedio de puntuaciones por local
+  const localScores = locals?.map((local) => {
+    const localReports = reports?.filter((r) => r.localId === local.id) || [];
+    // Por ahora, sin scores reales, usamos un placeholder
+    const avgScore = localReports.length > 0 ? 75 : 0;
+    return {
+      ...local,
+      reportsCount: localReports.length,
+      avgScore,
+    };
+  }) || [];
+
+  // Ordenar por puntuación descendente
+  const rankedLocals = localScores.sort((a, b) => b.avgScore - a.avgScore);
 
   return (
     <div className="min-h-screen bg-background">
@@ -92,7 +108,7 @@ export default function Dashboard() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {!rankedLocals || rankedLocals.length === 0 ? (
+            {rankedLocals.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">
                 No hay locales registrados. Comienza creando uno en Configuración.
               </p>
@@ -109,30 +125,30 @@ export default function Dashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {rankedLocals?.map((item, index) => (
-                    <TableRow key={item.local.id}>
+                  {rankedLocals.map((local, index) => (
+                    <TableRow key={local.id}>
                       <TableCell className="font-medium">#{index + 1}</TableCell>
-                      <TableCell className="font-medium">{item.local.name}</TableCell>
+                      <TableCell className="font-medium">{local.name}</TableCell>
                       <TableCell className="text-muted-foreground">
-                        {item.local.address || "—"}
+                        {local.address || "—"}
                       </TableCell>
-                      <TableCell className="text-right">{item.reportsCount}</TableCell>
+                      <TableCell className="text-right">{local.reportsCount}</TableCell>
                       <TableCell className="text-right">
                         <span
                           className={`font-bold ${
-                            item.avgScore >= 80
+                            local.avgScore >= 80
                               ? "text-green-600"
-                              : item.avgScore >= 60
+                              : local.avgScore >= 60
                               ? "text-yellow-600"
                               : "text-red-600"
                           }`}
                         >
-                          {item.avgScore}/100
+                          {local.avgScore}/100
                         </span>
                       </TableCell>
                       <TableCell className="text-right">
                         <Button asChild variant="outline" size="sm">
-                          <Link href={`/local/${item.local.id}`}>
+                          <Link href={`/local/${local.id}`}>
                             <a>Ver Detalle</a>
                           </Link>
                         </Button>

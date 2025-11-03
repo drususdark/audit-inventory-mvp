@@ -7,7 +7,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import ScoreEvolutionChart from "@/components/ScoreEvolutionChart";
 import { APP_LOGO, APP_TITLE, getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
 import { Link, useParams } from "wouter";
@@ -17,7 +16,8 @@ export default function LocalDetail() {
   const params = useParams<{ id: string }>();
   const localId = parseInt(params.id || "0", 10);
 
-  const { data: localData, isLoading } = trpc.ranking.getByLocal.useQuery({ localId });
+  const { data: local, isLoading: localLoading } = trpc.locals.getById.useQuery({ id: localId });
+  const { data: reports, isLoading: reportsLoading } = trpc.reports.getByLocalId.useQuery({ localId });
 
   if (!isAuthenticated) {
     return (
@@ -39,7 +39,7 @@ export default function LocalDetail() {
     );
   }
 
-  if (isLoading) {
+  if (localLoading || reportsLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p>Cargando...</p>
@@ -47,7 +47,7 @@ export default function LocalDetail() {
     );
   }
 
-  if (!localData || !localData.local) {
+  if (!local) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Card>
@@ -99,8 +99,8 @@ export default function LocalDetail() {
               <a>← Volver al Dashboard</a>
             </Link>
           </Button>
-          <h2 className="text-3xl font-bold mb-2">{localData.local.name}</h2>
-          <p className="text-muted-foreground">{localData.local.address || "Sin dirección"}</p>
+          <h2 className="text-3xl font-bold mb-2">{local.name}</h2>
+          <p className="text-muted-foreground">{local.address || "Sin dirección"}</p>
         </div>
 
         <div className="grid gap-6">
@@ -112,9 +112,9 @@ export default function LocalDetail() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {localData.reports && localData.reports.length > 0 ? (
+              {reports && reports.length > 0 ? (
                 <p className="text-muted-foreground">
-                  {localData.reports.length} informe(s) encontrado(s)
+                  {reports.length} informe(s) encontrado(s)
                 </p>
               ) : (
                 <p className="text-center text-muted-foreground py-8">
@@ -132,19 +132,9 @@ export default function LocalDetail() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <ScoreEvolutionChart
-                data={
-                  localData.reports
-                    ?.filter((r) => r.score && r.score.finalScore !== null)
-                    .map((r) => ({
-                      date: new Date(r.report.createdAt).toLocaleDateString("es-ES", {
-                        day: "2-digit",
-                        month: "short",
-                      }),
-                      score: r.score!.finalScore!,
-                    })) || []
-                }
-              />
+              <p className="text-center text-muted-foreground py-8">
+                Gráfico en desarrollo...
+              </p>
             </CardContent>
           </Card>
         </div>

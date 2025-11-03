@@ -1,3 +1,4 @@
+import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -5,11 +6,21 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { APP_LOGO, APP_TITLE } from "@/const";
-import { useLocation } from "wouter";
+import { APP_LOGO, APP_TITLE, getLoginUrl } from "@/const";
 
+/**
+ * All content in this page are only for example, delete if unneeded
+ * When building pages, remember your instructions in Frontend Workflow, Frontend Best Practices, Design Guide and Common Pitfalls
+ */
 export default function Home() {
-  const [, navigate] = useLocation();
+  // The userAuth hooks provides authentication state
+  // To implement login/logout functionality, simply call logout() or redirect to getLoginUrl()
+  let { user, loading, error, isAuthenticated, logout } = useAuth();
+
+  // If theme is switchable in App.tsx, we can implement theme toggling like this:
+  // const { theme, toggleTheme } = useTheme();
+
+  // Use APP_LOGO (as image src) and APP_TITLE if needed
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -22,12 +33,20 @@ export default function Home() {
             <h1 className="text-2xl font-bold">{APP_TITLE}</h1>
           </div>
           <nav className="flex items-center gap-4">
-            <Button asChild variant="outline">
-              <a href="/dashboard">Dashboard</a>
-            </Button>
-            <Button asChild>
-              <a href="/upload">Subir Informe</a>
-            </Button>
+            {isAuthenticated ? (
+              <>
+                <Button asChild variant="outline">
+                  <a href="/dashboard">Dashboard</a>
+                </Button>
+                <Button onClick={logout} variant="ghost">
+                  Cerrar Sesión
+                </Button>
+              </>
+            ) : (
+              <Button asChild>
+                <a href={getLoginUrl()}>Iniciar Sesión</a>
+              </Button>
+            )}
           </nav>
         </div>
       </header>
@@ -42,21 +61,20 @@ export default function Home() {
               Analiza informes de inventario con IA, asigna puntuaciones automáticas
               y genera rankings de locales con evolución histórica.
             </p>
-            <div className="flex gap-4 justify-center">
-              <Button 
-                size="lg"
-                onClick={() => navigate("/dashboard")}
-              >
-                Ver Dashboard
+            {isAuthenticated ? (
+              <div className="flex gap-4 justify-center">
+                <Button asChild size="lg">
+                  <a href="/dashboard">Ver Dashboard</a>
+                </Button>
+                <Button asChild size="lg" variant="outline">
+                  <a href="/upload">Subir Informe</a>
+                </Button>
+              </div>
+            ) : (
+              <Button asChild size="lg">
+                <a href={getLoginUrl()}>Comenzar Ahora</a>
               </Button>
-              <Button 
-                size="lg" 
-                variant="outline"
-                onClick={() => navigate("/upload")}
-              >
-                Subir Informe
-              </Button>
-            </div>
+            )}
           </div>
         </section>
 
@@ -112,4 +130,3 @@ export default function Home() {
     </div>
   );
 }
-
