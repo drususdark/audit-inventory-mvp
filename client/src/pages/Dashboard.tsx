@@ -15,34 +15,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { APP_LOGO, APP_TITLE, getLoginUrl } from "@/const";
+import { APP_LOGO, APP_TITLE } from "@/const";
 import { trpc } from "@/lib/trpc";
 import { Link } from "wouter";
 
 export default function Dashboard() {
-  const { user, isAuthenticated } = useAuth();
   const { data: locals, isLoading: localsLoading } = trpc.locals.list.useQuery();
   const { data: reports, isLoading: reportsLoading } = trpc.reports.list.useQuery();
-
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>Acceso Requerido</CardTitle>
-            <CardDescription>
-              Debes iniciar sesión para ver el dashboard
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button asChild className="w-full">
-              <a href={getLoginUrl()}>Iniciar Sesión</a>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   if (localsLoading || reportsLoading) {
     return (
@@ -87,7 +66,6 @@ export default function Dashboard() {
             <Link href="/settings">
               <a className="text-sm font-medium hover:underline">Configuración</a>
             </Link>
-            <span className="text-sm text-muted-foreground">{user?.name}</span>
           </nav>
         </div>
       </header>
