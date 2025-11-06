@@ -57,14 +57,14 @@ export default function Dashboard() {
             <h1 className="text-2xl font-bold">{APP_TITLE}</h1>
           </div>
           <nav className="flex items-center gap-4">
-            <Link href="/dashboard">
-              <a className="text-sm font-medium hover:underline">Dashboard</a>
+            <Link href="/dashboard" className="text-sm font-medium hover:underline">
+              Dashboard
             </Link>
-            <Link href="/upload">
-              <a className="text-sm font-medium hover:underline">Subir Informe</a>
+            <Link href="/upload" className="text-sm font-medium hover:underline">
+              Subir Informe
             </Link>
-            <Link href="/settings">
-              <a className="text-sm font-medium hover:underline">Configuración</a>
+            <Link href="/settings" className="text-sm font-medium hover:underline">
+              Configuración
             </Link>
           </nav>
         </div>
