@@ -1,4 +1,3 @@
-import { handler } from '../dist/index.js';
-
+import handler from '../dist/server/_core/vercel-handler.js';
 export default handler;
 
