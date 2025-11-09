@@ -125,11 +125,11 @@ export default function Dashboard() {
                         </span>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button asChild variant="outline" size="sm">
-                          <Link href={`/local/${local.id}`}>
-                            <a>Ver Detalle</a>
-                          </Link>
-                        </Button>
+                        <Link href={`/local/${local.id}`}>
+                          <Button variant="outline" size="sm">
+                            Ver Detalle
+                          </Button>
+                        </Link>
                       </TableCell>
                     </TableRow>
                   ))}
