@@ -1,19 +1,11 @@
 {
   "buildCommand": "pnpm build",
   "outputDirectory": "dist/public",
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/index.js"
-    },
-    {
-      "src": "/assets/(.*)",
-      "dest": "/assets/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
+  "functions": {
+    "api/[...routes].ts": {
+      "memory": 3008,
+      "maxDuration": 30
     }
-  ]
+  }
 }
 
