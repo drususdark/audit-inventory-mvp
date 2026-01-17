@@ -170,6 +170,13 @@ export async function getScoreByReportId(reportId: number) {
   return result.length > 0 ? result[0] : undefined;
 }
 
+export async function getAllScores() {
+  const db = await getDb();
+  if (!db) return [];
+  const { scores } = await import("../drizzle/schema");
+  return await db.select().from(scores);
+}
+
 export async function createScore(data: {
   reportId: number;
   autoScore?: number;
