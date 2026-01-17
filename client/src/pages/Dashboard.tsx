@@ -1,29 +1,13 @@
-import { useAuth } from "@/_core/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { APP_LOGO, APP_TITLE } from "@/const";
 import { trpc } from "@/lib/trpc";
+import { APP_LOGO, APP_TITLE } from "@/const";
 import { Link } from "wouter";
 
 export default function Dashboard() {
   const { data: locals, isLoading: localsLoading } = trpc.locals.list.useQuery();
   const { data: reports, isLoading: reportsLoading } = trpc.reports.list.useQuery();
+  const { data: scores, isLoading: scoresLoading } = trpc.scores.list.useQuery();
 
-  if (localsLoading || reportsLoading) {
+  if (localsLoading || reportsLoading || scoresLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p>Cargando...</p>
@@ -31,32 +15,36 @@ export default function Dashboard() {
     );
   }
 
-  // Calcular promedio de puntuaciones por local
-  const localScores = locals?.map((local) => {
-    const localReports = reports?.filter((r) => r.localId === local.id) || [];
-    // Por ahora, sin scores reales, usamos un placeholder
-    const avgScore = localReports.length > 0 ? 75 : 0;
-    return {
-      ...local,
-      reportsCount: localReports.length,
-      avgScore,
-    };
-  }) || [];
+  const scoreMap: Record<string, number[]> = {};
+  scores?.forEach((score) => {
+    const report = reports?.find((r) => r.id === score.reportId);
+    if (report) {
+      const arr = scoreMap[report.localId] ?? [];
+      arr.push(score.finalScore ?? score.autoScore ?? 0);
+      scoreMap[report.localId] = arr;
+    }
+  });
 
-  // Ordenar por puntuación descendente
-  const rankedLocals = localScores.sort((a, b) => b.avgScore - a.avgScore);
+  const ranking = (locals ?? []).map((local) => {
+    const arr = scoreMap[local.id] ?? [];
+    const avg = arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+    return {
+      id: local.id,
+      name: local.name,
+      average: avg,
+      count: arr.length,
+    };
+  }).sort((a, b) => b.average - a.average);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen flex flex-col bg-background">
       <header className="border-b">
         <div className="container flex items-center justify-between py-4">
           <div className="flex items-center gap-3">
-            {APP_LOGO && (
-              <img src={APP_LOGO} alt="Logo" className="h-8 w-8" />
-            )}
+            {APP_LOGO && <img src={APP_LOGO} className="h-8 w-8" alt="Logo" />}
             <h1 className="text-2xl font-bold">{APP_TITLE}</h1>
           </div>
-          <nav className="flex items-center gap-4">
+          <nav className="flex gap-4">
             <Link href="/dashboard" className="text-sm font-medium hover:underline">
               Dashboard
             </Link>
@@ -69,77 +57,29 @@ export default function Dashboard() {
           </nav>
         </div>
       </header>
-
-      <main className="container py-8">
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold mb-2">Dashboard de Auditorías</h2>
-          <p className="text-muted-foreground">
-            Ranking de locales basado en las puntuaciones de auditoría
-          </p>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Ranking de Locales</CardTitle>
-            <CardDescription>
-              Locales ordenados por puntuación promedio (mayor a menor)
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {rankedLocals.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">
-                No hay locales registrados. Comienza creando uno en Configuración.
-              </p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[80px]">Posición</TableHead>
-                    <TableHead>Local</TableHead>
-                    <TableHead>Dirección</TableHead>
-                    <TableHead className="text-right">Informes</TableHead>
-                    <TableHead className="text-right">Puntuación Promedio</TableHead>
-                    <TableHead className="text-right">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rankedLocals.map((local, index) => (
-                    <TableRow key={local.id}>
-                      <TableCell className="font-medium">#{index + 1}</TableCell>
-                      <TableCell className="font-medium">{local.name}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {local.address || "—"}
-                      </TableCell>
-                      <TableCell className="text-right">{local.reportsCount}</TableCell>
-                      <TableCell className="text-right">
-                        <span
-                          className={`font-bold ${
-                            local.avgScore >= 80
-                              ? "text-green-600"
-                              : local.avgScore >= 60
-                              ? "text-yellow-600"
-                              : "text-red-600"
-                          }`}
-                        >
-                          {local.avgScore}/100
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Link href={`/local/${local.id}`}>
-                          <Button variant="outline" size="sm">
-                            Ver Detalle
-                          </Button>
-                        </Link>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+      <main className="container mx-auto p-4 flex-grow">
+        <h2 className="text-xl font-bold mb-4">Ranking de Locales</h2>
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead>
+            <tr>
+              <th className="px-4 py-2 text-left">#</th>
+              <th className="px-4 py-2 text-left">Local</th>
+              <th className="px-4 py-2 text-left">Promedio</th>
+              <th className="px-4 py-2 text-left">Informes</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {ranking.map((item, index) => (
+              <tr key={item.id}>
+                <td className="px-4 py-2">{index + 1}</td>
+                <td className="px-4 py-2">{item.name}</td>
+                <td className="px-4 py-2">{item.average.toFixed(1)}</td>
+                <td className="px-4 py-2">{item.count}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </main>
     </div>
   );
 }
-
