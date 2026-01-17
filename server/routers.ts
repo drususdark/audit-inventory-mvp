@@ -1,114 +1,137 @@
-import { COOKIE_NAME } from "@shared/const";
-import { getSessionCookieOptions } from "./_core/cookies";
-import { systemRouter } from "./_core/systemRouter";
-import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { z } from "zod";
+import { initTRPC, TRPCError } from "@trpc/server";
+import { createContext } from "./context";
+import {
+  getAllLocals,
+  getLocalById,
+  createLocal,
+  getAllReports,
+  getReportsByLocalId,
+  getReportById,
+  createReport,
+  getAllScores,
+  getScoreByReportId,
+  createScore,
+} from "./db";
+import { storagePut } from "./storage";
 
-export const appRouter = router({
-  system: systemRouter,
+const t = initTRPC.context<typeof createContext>().create();
+const publicProcedure = t.procedure;
+const protectedProcedure = t.procedure;
 
-  auth: router({
-    me: publicProcedure.query(opts => opts.ctx.user),
-    logout: publicProcedure.mutation(({ ctx }) => {
-      const cookieOptions = getSessionCookieOptions(ctx.req);
-      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
-      return {
-        success: true,
-      } as const;
-    }),
-  }),
+// Helper to parse percentage from report text
+function parsePercentage(text: string, label: string): number | null {
+  const regex = new RegExp(`${label}\\s*:?\\s*(\\d+(?:\\.\\d+)?)%`, "i");
+  const match = regex.exec(text);
+  if (match) {
+    return parseFloat(match[1]);
+  }
+  return null;
+}
 
-  // ============================================================
-  // Router de Locales
-  // ============================================================
-  locals: router({
+// Analyze report text and compute scores for each criterion
+function analyzeReport(text: string) {
+  const criteriaConfigs = [
+    { key: "accuracy", name: "Exactitud de inventario", weight: 30, value: parsePercentage(text, "exactitud") ?? 100 },
+    { key: "missing", name: "Faltantes", weight: 25, value: parsePercentage(text, "faltantes") ?? 0 },
+    { key: "procedures", name: "Procedimientos", weight: 20, value: parsePercentage(text, "procedimientos") ?? 100 },
+    { key: "organization", name: "Organización", weight: 10, value: parsePercentage(text, "organizacion") ?? 100 },
+    { key: "expiry", name: "Vencidos", weight: 10, value: parsePercentage(text, "vencidos") ?? 0 },
+    { key: "clarity", name: "Claridad", weight: 5, value: parsePercentage(text, "claridad") ?? 100 },
+  ];
+
+  let autoScore = 0;
+  const criteriaScores: Record<string, { weight: number; score: number; justification: string }> = {};
+  for (const cfg of criteriaConfigs) {
+    let score: number;
+    if (cfg.key === "missing" || cfg.key === "expiry") {
+      score = Math.max(0, Math.min(100, 100 - cfg.value));
+    } else {
+      score = Math.max(0, Math.min(100, cfg.value));
+    }
+    autoScore += (score * cfg.weight) / 100;
+    criteriaScores[cfg.key] = {
+      weight: cfg.weight,
+      score,
+      justification: `La puntuación para ${cfg.name} se calculó como ${score.toFixed(2)}.`,
+    };
+  }
+  autoScore = parseFloat(autoScore.toFixed(2));
+  return {
+    autoScore,
+    finalScore: autoScore,
+    criteriaScores,
+    aiSource: "heuristic",
+  };
+}
+
+export const appRouter = t.router({
+  locals: t.router({
     list: publicProcedure.query(async () => {
-      const { getAllLocals } = await import("./db");
       return await getAllLocals();
     }),
-    getById: publicProcedure.input((val: unknown) => {
-      if (typeof val !== "object" || val === null || !("id" in val)) {
-        throw new Error("Invalid input: expected object with id");
-      }
-      const { id } = val as { id: unknown };
-      if (typeof id !== "number") {
-        throw new Error("Invalid input: id must be a number");
-      }
-      return { id };
-    }).query(async ({ input }) => {
-      const { getLocalById } = await import("./db");
+    getById: publicProcedure.input(z.object({ id: z.number() })).query(async ({ input }) => {
       return await getLocalById(input.id);
     }),
-    create: protectedProcedure.input((val: unknown) => {
-      if (typeof val !== "object" || val === null || !("name" in val)) {
-        throw new Error("Invalid input: expected object with name");
-      }
-      const { name, address } = val as { name: unknown; address?: unknown };
-      if (typeof name !== "string") {
-        throw new Error("Invalid input: name must be a string");
-      }
-      if (address !== undefined && typeof address !== "string") {
-        throw new Error("Invalid input: address must be a string");
-      }
-      return { name, address };
-    }).mutation(async ({ input }) => {
-      const { createLocal } = await import("./db");
-      await createLocal(input);
-      return { success: true };
+    create: protectedProcedure.input(z.object({ name: z.string(), address: z.string() })).mutation(async ({ input }) => {
+      return await createLocal(input);
     }),
   }),
-
-  // ============================================================
-  // Router de Informes (Reports)
-  // ============================================================
-  reports: router({
+  reports: t.router({
     list: publicProcedure.query(async () => {
-      const { getAllReports } = await import("./db");
       return await getAllReports();
     }),
-    getById: publicProcedure.input((val: unknown) => {
-      if (typeof val !== "object" || val === null || !("id" in val)) {
-        throw new Error("Invalid input: expected object with id");
-      }
-      const { id } = val as { id: unknown };
-      if (typeof id !== "number") {
-        throw new Error("Invalid input: id must be a number");
-      }
-      return { id };
-    }).query(async ({ input }) => {
-      const { getReportById } = await import("./db");
+    getById: publicProcedure.input(z.object({ id: z.number() })).query(async ({ input }) => {
       return await getReportById(input.id);
     }),
-    getByLocalId: publicProcedure.input((val: unknown) => {
-      if (typeof val !== "object" || val === null || !("localId" in val)) {
-        throw new Error("Invalid input: expected object with localId");
-      }
-      const { localId } = val as { localId: unknown };
-      if (typeof localId !== "number") {
-        throw new Error("Invalid input: localId must be a number");
-      }
-      return { localId };
-    }).query(async ({ input }) => {
-      const { getReportsByLocalId } = await import("./db");
+    getByLocalId: publicProcedure.input(z.object({ localId: z.number() })).query(async ({ input }) => {
       return await getReportsByLocalId(input.localId);
     }),
+    create: protectedProcedure
+      .input(
+        z.object({
+          localId: z.number(),
+          date: z.string(),
+          text: z.string().optional(),
+          fileName: z.string().optional(),
+          fileData: z.string().optional(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const { localId, date, text, fileName, fileData } = input;
+        if (!text && !fileData) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Debe proporcionar texto o archivo" });
+        }
+        let fileUrl: string | null = null;
+        if (fileName && fileData) {
+          const buffer = Buffer.from(fileData, "base64");
+          const path = `reports/${Date.now()}-${fileName}`;
+          fileUrl = await storagePut(path, buffer);
+        }
+        const report = await createReport({
+          localId,
+          date,
+          rawContent: text ?? null,
+          fileUrl,
+        });
+        const analysisText = text ?? "";
+        const { autoScore, finalScore, criteriaScores, aiSource } = analyzeReport(analysisText);
+        await createScore({
+          reportId: report.id,
+          autoScore,
+          finalScore,
+          criteriaScores,
+          aiSource,
+        });
+        return report;
+      }),
   }),
-
-  // ============================================================
-  // Router de Puntuaciones (Scores)
-  // ============================================================
-  scores: router({
-    getByReportId: publicProcedure.input((val: unknown) => {
-      if (typeof val !== "object" || val === null || !("reportId" in val)) {
-        throw new Error("Invalid input: expected object with reportId");
-      }
-      const { reportId } = val as { reportId: unknown };
-      if (typeof reportId !== "number") {
-        throw new Error("Invalid input: reportId must be a number");
-      }
-      return { reportId };
-    }).query(async ({ input }) => {
-      const { getScoreByReportId } = await import("./db");
+  scores: t.router({
+    getByReportId: publicProcedure.input(z.object({ reportId: z.number() })).query(async ({ input }) => {
       return await getScoreByReportId(input.reportId);
+    }),
+    list: publicProcedure.query(async () => {
+      return await getAllScores();
     }),
   }),
 });
