@@ -1,12 +1,12 @@
 import { useState, ChangeEvent, FormEvent } from "react";
 import { trpc } from "../lib/trpc";
-import dayjs from "dayjs";
+import { format } from "date-fns";
 
 export default function Upload() {
   const { data: locals } = trpc.locals.list.useQuery();
   const createReport = trpc.reports.create.useMutation();
   const [localId, setLocalId] = useState("");
-  const [date, setDate] = useState(dayjs().format("YYYY-MM-DD"));
+const [date, setDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [inputType, setInputType] = useState<"text" | "file">("text");
   const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -55,7 +55,7 @@ export default function Upload() {
       });
       setStatus("Informe subido y analizado correctamente.");
       setLocalId("");
-      setDate(dayjs().format("YYYY-MM-DD"));
+      setDate(format(new Date(), "yyyy-MM-dd"));
       setText("");
       setFile(null);
     } catch (err) {
