@@ -73,7 +73,7 @@ export const appRouter = t.router({
     getById: publicProcedure.input(z.object({ id: z.number() })).query(async ({ input }) => {
       return await getLocalById(input.id);
     }),
-    create: protectedProcedure.input(z.object({ name: z.string(), address: z.string() })).mutation(async ({ input }) => {
+    create: publicProcedure.input(z.object({ name: z.string(), address: z.string() })).mutation(async ({ input }) => {
       return await createLocal(input);
     }),
   }),
@@ -89,7 +89,7 @@ export const appRouter = t.router({
     }),
     create: protectedProcedure
       .input(
-        z.object({
+        z.objectpublicProcedure
           localId: z.number(),
           date: z.string(),
           text: z.string().optional(),
