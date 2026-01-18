@@ -70,32 +70,40 @@ export const appRouter = t.router({
     list: publicProcedure.query(async () => {
       return await getAllLocals();
     }),
-    getById: publicProcedure.input(z.object({ id: z.number() })).query(async ({ input }) => {
-      return await getLocalById(input.id);
-    }),
-    create: publicProcedure.input(z.object({ name: z.string(), address: z.string() })).mutation(async ({ input }) => {
-      return await createLocal(input);
-    }),
+    getById: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ input }) => {
+        return await getLocalById(input.id);
+      }),
+    create: publicProcedure
+      .input(z.object({ name: z.string(), address: z.string() }))
+      .mutation(async ({ input }) => {
+        return await createLocal(input);
+      }),
   }),
   reports: t.router({
     list: publicProcedure.query(async () => {
       return await getAllReports();
     }),
-    getById: publicProcedure.input(z.object({ id: z.number() })).query(async ({ input }) => {
+    getById: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ input }) => {
       return await getReportById(input.id);
     }),
-    getByLocalId: publicProcedure.input(z.object({ localId: z.number() })).query(async ({ input }) => {
-      return await getReportsByLocalId(input.localId);
-    }),
+    getByLocalId: publicProcedure
+      .input(z.object({ localId: z.number() }))
+      .query(async ({ input }) => {
+        return await getReportsByLocalId(input.localId);
+      }),
     create: protectedProcedure
       .input(
-        z.objectpublicProcedure
+        z.object({
           localId: z.number(),
           date: z.string(),
           text: z.string().optional(),
           fileName: z.string().optional(),
           fileData: z.string().optional(),
-        })
+        }),
       )
       .mutation(async ({ input }) => {
         const { localId, date, text, fileName, fileData } = input;
@@ -127,9 +135,11 @@ export const appRouter = t.router({
       }),
   }),
   scores: t.router({
-    getByReportId: publicProcedure.input(z.object({ reportId: z.number() })).query(async ({ input }) => {
-      return await getScoreByReportId(input.reportId);
-    }),
+    getByReportId: publicProcedure
+      .input(z.object({ reportId: z.number() }))
+      .query(async ({ input }) => {
+        return await getScoreByReportId(input.reportId);
+      }),
     list: publicProcedure.query(async () => {
       return await getAllScores();
     }),
