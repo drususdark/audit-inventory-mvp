@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { initTRPC, TRPCError } from "@trpc/server";
-import { createContext } from "./context";
+import { createContext } from "./_core/context";
 import {
   getAllLocals,
   getLocalById,
@@ -115,7 +115,8 @@ export const appRouter = t.router({
         if (fileName && fileData) {
           const buffer = Buffer.from(fileData, "base64");
           const path = `reports/${Date.now()}-${fileName}`;
-          fileUrl = await storagePut(path, buffer);
+          const uploadResult = await storagePut(path, buffer);
+          fileUrl = uploadResult.url;
           // Determine input type from file extension
           if (fileName.endsWith(".pdf")) inputType = "pdf";
           else if (fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) inputType = "excel";
