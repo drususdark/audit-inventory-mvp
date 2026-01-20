@@ -105,30 +105,42 @@ export const appRouter = t.router({
           fileData: z.string().optional(),
         }),
       )
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         const { localId, date, text, fileName, fileData } = input;
         if (!text && !fileData) {
           throw new TRPCError({ code: "BAD_REQUEST", message: "Debe proporcionar texto o archivo" });
         }
         let fileUrl: string | null = null;
+        let inputType: "text" | "pdf" | "excel" = "text";
         if (fileName && fileData) {
           const buffer = Buffer.from(fileData, "base64");
           const path = `reports/${Date.now()}-${fileName}`;
           fileUrl = await storagePut(path, buffer);
+          // Determine input type from file extension
+          if (fileName.endsWith(".pdf")) inputType = "pdf";
+          else if (fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) inputType = "excel";
         }
+        const reportDate = new Date(date);
+        const userId = ctx.user?.id ?? 0;
         const report = await createReport({
           localId,
-          date,
+          userId,
+          reportDate,
+          inputType,
           rawContent: text ?? null,
           fileUrl,
+          fileName: fileName ?? null,
         });
+        if (!report) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Error al crear el informe" });
+        }
         const analysisText = text ?? "";
         const { autoScore, finalScore, criteriaScores, aiSource } = analyzeReport(analysisText);
         await createScore({
           reportId: report.id,
           autoScore,
           finalScore,
-          criteriaScores,
+          criteriaScores: JSON.stringify(criteriaScores),
           aiSource,
         });
         return report;

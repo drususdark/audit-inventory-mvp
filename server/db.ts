@@ -112,8 +112,10 @@ export async function createLocal(data: { name: string; address?: string }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   const { locals } = await import("../drizzle/schema");
-  const result = await db.insert(locals).values(data);
-  return result;
+  await db.insert(locals).values(data);
+  // Fetch the newly created local
+  const result = await db.select().from(locals).where(eq(locals.name, data.name)).orderBy(locals.id).limit(1);
+  return result.length > 0 ? result[0] : null;
 }
 
 // ============================================================
@@ -147,15 +149,17 @@ export async function createReport(data: {
   userId: number;
   reportDate: Date;
   inputType: "text" | "pdf" | "excel";
-  rawContent?: string;
-  fileUrl?: string;
-  fileName?: string;
+  rawContent?: string | null;
+  fileUrl?: string | null;
+  fileName?: string | null;
 }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   const { reports } = await import("../drizzle/schema");
-  const result = await db.insert(reports).values(data);
-  return result;
+  await db.insert(reports).values(data);
+  // Fetch the newly created report
+  const result = await db.select().from(reports).where(eq(reports.localId, data.localId)).orderBy(reports.id).limit(1);
+  return result.length > 0 ? result[0] : null;
 }
 
 // ============================================================

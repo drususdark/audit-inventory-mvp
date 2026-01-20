@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { trpc } from "@/lib/trpc";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { APP_LOGO, APP_TITLE } from "@/const";
+import { toast } from "sonner";
 
 export default function Settings() {
   const { data: locals } = trpc.locals.list.useQuery();
@@ -15,21 +17,38 @@ export default function Settings() {
       await utils.locals.list.invalidate();
       setNewName("");
       setNewAddress("");
+      setError(null);
     },
   });
 
   const [newName, setNewName] = useState("");
   const [newAddress, setNewAddress] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newName.trim() || !newAddress.trim()) return;
+    setError(null);
+    
+    if (!newName.trim()) {
+      setError("El nombre del local es requerido.");
+      return;
+    }
+    
+    if (!newAddress.trim()) {
+      setError("La dirección del local es requerida.");
+      return;
+    }
+    
     try {
       await createLocal.mutateAsync({
         name: newName.trim(),
         address: newAddress.trim(),
       });
+      toast.success("Local creado correctamente.");
     } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Error al crear el local.";
+      setError(errorMessage);
+      toast.error(errorMessage);
       console.error(err);
     }
   };
@@ -74,44 +93,55 @@ export default function Settings() {
         <Card className="mb-6">
           <CardHeader>
             <CardTitle>Gestión de locales</CardTitle>
+            <CardDescription>Crea y administra los locales que serán auditados</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4 mb-6">
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="name">Nombre del local</Label>
+                  <Label htmlFor="name">Nombre del local *</Label>
                   <Input
                     id="name"
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
-                    placeholder="Nombre"
+                    placeholder="Ej: Tienda Centro"
                   />
                 </div>
                 <div>
-                  <Label htmlFor="address">Dirección del local</Label>
+                  <Label htmlFor="address">Dirección del local *</Label>
                   <Input
                     id="address"
                     value={newAddress}
                     onChange={(e) => setNewAddress(e.target.value)}
-                    placeholder="Dirección"
+                    placeholder="Ej: Calle Principal 123"
                   />
                 </div>
               </div>
-              <Button type="submit">Crear local</Button>
+              <Button type="submit" disabled={createLocal.isPending}>
+                {createLocal.isPending ? "Creando..." : "Crear local"}
+              </Button>
             </form>
 
             {locals && locals.length > 0 ? (
-              <ul className="space-y-2">
-                {locals.map((loc) => (
-                  <li key={loc.id} className="border rounded p-2">
-                    <span className="font-medium">{loc.name}</span> –{" "}
-                    {loc.address}
-                  </li>
-                ))}
-              </ul>
+              <div className="space-y-2">
+                <h4 className="font-semibold mb-3">Locales registrados ({locals.length})</h4>
+                <ul className="space-y-2">
+                  {locals.map((loc) => (
+                    <li key={loc.id} className="border rounded p-3 hover:bg-muted transition-colors">
+                      <div className="font-medium">{loc.name}</div>
+                      <div className="text-sm text-muted-foreground">{loc.address}</div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ) : (
-              <p className="text-muted-foreground">
-                No hay locales registrados.
+              <p className="text-muted-foreground text-center py-4">
+                No hay locales registrados. Crea uno para comenzar.
               </p>
             )}
           </CardContent>
