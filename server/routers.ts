@@ -71,9 +71,10 @@ export const appRouter = t.router({
     list: publicProcedure.query(async () => {
       try {
         const locals = await getAllLocals();
+        console.log("[TRPC] locals.list - Returned:", locals?.length || 0, "locals");
         return locals || [];
       } catch (error) {
-        console.error("Error fetching locals:", error);
+        console.error("[TRPC] locals.list - Error:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Error al obtener locales",
@@ -84,9 +85,11 @@ export const appRouter = t.router({
       .input(z.object({ id: z.number() }))
       .query(async ({ input }) => {
         try {
-          return await getLocalById(input.id);
+          const local = await getLocalById(input.id);
+          console.log("[TRPC] locals.getById - Returned local:", local?.id);
+          return local;
         } catch (error) {
-          console.error("Error fetching local:", error);
+          console.error("[TRPC] locals.getById - Error:", error);
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
             message: "Error al obtener local",
@@ -97,7 +100,9 @@ export const appRouter = t.router({
       .input(z.object({ name: z.string(), address: z.string().optional() }))
       .mutation(async ({ input }) => {
         try {
+          console.log("[TRPC] locals.create - Input:", input);
           const result = await createLocal(input);
+          console.log("[TRPC] locals.create - Result:", result);
           if (!result) {
             throw new TRPCError({
               code: "INTERNAL_SERVER_ERROR",
@@ -106,7 +111,8 @@ export const appRouter = t.router({
           }
           return result;
         } catch (error) {
-          console.error("Error creating local:", error);
+          console.error("[TRPC] locals.create - Error:", error);
+          if (error instanceof TRPCError) throw error;
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
             message: error instanceof Error ? error.message : "Error al crear local",
@@ -118,9 +124,10 @@ export const appRouter = t.router({
     list: publicProcedure.query(async () => {
       try {
         const reports = await getAllReports();
+        console.log("[TRPC] reports.list - Returned:", reports?.length || 0, "reports");
         return reports || [];
       } catch (error) {
-        console.error("Error fetching reports:", error);
+        console.error("[TRPC] reports.list - Error:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Error al obtener reportes",
@@ -131,9 +138,11 @@ export const appRouter = t.router({
       .input(z.object({ id: z.number() }))
       .query(async ({ input }) => {
         try {
-          return await getReportById(input.id);
+          const report = await getReportById(input.id);
+          console.log("[TRPC] reports.getById - Returned report:", report?.id);
+          return report;
         } catch (error) {
-          console.error("Error fetching report:", error);
+          console.error("[TRPC] reports.getById - Error:", error);
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
             message: "Error al obtener reporte",
@@ -144,9 +153,11 @@ export const appRouter = t.router({
       .input(z.object({ localId: z.number() }))
       .query(async ({ input }) => {
         try {
-          return await getReportsByLocalId(input.localId);
+          const reports = await getReportsByLocalId(input.localId);
+          console.log("[TRPC] reports.getByLocalId - Returned:", reports?.length || 0, "reports");
+          return reports;
         } catch (error) {
-          console.error("Error fetching reports by local:", error);
+          console.error("[TRPC] reports.getByLocalId - Error:", error);
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
             message: "Error al obtener reportes",
@@ -166,6 +177,7 @@ export const appRouter = t.router({
       .mutation(async ({ input, ctx }) => {
         const { localId, date, text, fileName, fileData } = input;
         try {
+          console.log("[TRPC] reports.create - Input:", { localId, date, fileName, hasText: !!text, hasFileData: !!fileData });
           if (!text && !fileData) {
             throw new TRPCError({ code: "BAD_REQUEST", message: "Debe proporcionar texto o archivo" });
           }
@@ -191,6 +203,7 @@ export const appRouter = t.router({
             fileUrl,
             fileName: fileName ?? null,
           });
+          console.log("[TRPC] reports.create - Report created:", report?.id);
           if (!report) {
             throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Error al crear el informe" });
           }
@@ -205,7 +218,7 @@ export const appRouter = t.router({
           });
           return report;
         } catch (error) {
-          console.error("Error creating report:", error);
+          console.error("[TRPC] reports.create - Error:", error);
           if (error instanceof TRPCError) throw error;
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
@@ -219,9 +232,11 @@ export const appRouter = t.router({
       .input(z.object({ reportId: z.number() }))
       .query(async ({ input }) => {
         try {
-          return await getScoreByReportId(input.reportId);
+          const score = await getScoreByReportId(input.reportId);
+          console.log("[TRPC] scores.getByReportId - Returned score:", score?.id);
+          return score;
         } catch (error) {
-          console.error("Error fetching score:", error);
+          console.error("[TRPC] scores.getByReportId - Error:", error);
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
             message: "Error al obtener puntuación",
@@ -231,9 +246,10 @@ export const appRouter = t.router({
     list: publicProcedure.query(async () => {
       try {
         const scores = await getAllScores();
+        console.log("[TRPC] scores.list - Returned:", scores?.length || 0, "scores");
         return scores || [];
       } catch (error) {
-        console.error("Error fetching scores:", error);
+        console.error("[TRPC] scores.list - Error:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Error al obtener puntuaciones",
