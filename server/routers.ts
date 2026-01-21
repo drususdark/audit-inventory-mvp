@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { initTRPC, TRPCError } from "@trpc/server";
 import { createContext } from "./_core/context";
+import type { TrpcContext } from "./_core/context";
 import {
   getAllLocals,
   getLocalById,
@@ -15,7 +16,7 @@ import {
 } from "./db";
 import { storagePut } from "./storage";
 
-const t = initTRPC.context<typeof createContext>().create();
+const t = initTRPC.context<TrpcContext>().create();
 const publicProcedure = t.procedure;
 const protectedProcedure = t.procedure;
 
@@ -68,34 +69,91 @@ function analyzeReport(text: string) {
 export const appRouter = t.router({
   locals: t.router({
     list: publicProcedure.query(async () => {
-      return await getAllLocals();
+      try {
+        const locals = await getAllLocals();
+        return locals || [];
+      } catch (error) {
+        console.error("Error fetching locals:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Error al obtener locales",
+        });
+      }
     }),
     getById: publicProcedure
       .input(z.object({ id: z.number() }))
       .query(async ({ input }) => {
-        return await getLocalById(input.id);
+        try {
+          return await getLocalById(input.id);
+        } catch (error) {
+          console.error("Error fetching local:", error);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Error al obtener local",
+          });
+        }
       }),
     create: publicProcedure
-      .input(z.object({ name: z.string(), address: z.string() }))
+      .input(z.object({ name: z.string(), address: z.string().optional() }))
       .mutation(async ({ input }) => {
-        return await createLocal(input);
+        try {
+          const result = await createLocal(input);
+          if (!result) {
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message: "Error al crear local",
+            });
+          }
+          return result;
+        } catch (error) {
+          console.error("Error creating local:", error);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: error instanceof Error ? error.message : "Error al crear local",
+          });
+        }
       }),
   }),
   reports: t.router({
     list: publicProcedure.query(async () => {
-      return await getAllReports();
+      try {
+        const reports = await getAllReports();
+        return reports || [];
+      } catch (error) {
+        console.error("Error fetching reports:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Error al obtener reportes",
+        });
+      }
     }),
     getById: publicProcedure
       .input(z.object({ id: z.number() }))
       .query(async ({ input }) => {
-      return await getReportById(input.id);
-    }),
+        try {
+          return await getReportById(input.id);
+        } catch (error) {
+          console.error("Error fetching report:", error);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Error al obtener reporte",
+          });
+        }
+      }),
     getByLocalId: publicProcedure
       .input(z.object({ localId: z.number() }))
       .query(async ({ input }) => {
-        return await getReportsByLocalId(input.localId);
+        try {
+          return await getReportsByLocalId(input.localId);
+        } catch (error) {
+          console.error("Error fetching reports by local:", error);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Error al obtener reportes",
+          });
+        }
       }),
-    create: protectedProcedure
+    create: publicProcedure
       .input(
         z.object({
           localId: z.number(),
@@ -107,54 +165,80 @@ export const appRouter = t.router({
       )
       .mutation(async ({ input, ctx }) => {
         const { localId, date, text, fileName, fileData } = input;
-        if (!text && !fileData) {
-          throw new TRPCError({ code: "BAD_REQUEST", message: "Debe proporcionar texto o archivo" });
+        try {
+          if (!text && !fileData) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: "Debe proporcionar texto o archivo" });
+          }
+          let fileUrl: string | null = null;
+          let inputType: "text" | "pdf" | "excel" = "text";
+          if (fileName && fileData) {
+            const buffer = Buffer.from(fileData, "base64");
+            const path = `reports/${Date.now()}-${fileName}`;
+            const uploadResult = await storagePut(path, buffer);
+            fileUrl = uploadResult.url;
+            // Determine input type from file extension
+            if (fileName.endsWith(".pdf")) inputType = "pdf";
+            else if (fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) inputType = "excel";
+          }
+          const reportDate = new Date(date);
+          const userId = ctx.user?.id ?? 0;
+          const report = await createReport({
+            localId,
+            userId,
+            reportDate,
+            inputType,
+            rawContent: text ?? null,
+            fileUrl,
+            fileName: fileName ?? null,
+          });
+          if (!report) {
+            throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Error al crear el informe" });
+          }
+          const analysisText = text ?? "";
+          const { autoScore, finalScore, criteriaScores, aiSource } = analyzeReport(analysisText);
+          await createScore({
+            reportId: report.id,
+            autoScore,
+            finalScore,
+            criteriaScores: JSON.stringify(criteriaScores),
+            aiSource,
+          });
+          return report;
+        } catch (error) {
+          console.error("Error creating report:", error);
+          if (error instanceof TRPCError) throw error;
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: error instanceof Error ? error.message : "Error al crear el informe",
+          });
         }
-        let fileUrl: string | null = null;
-        let inputType: "text" | "pdf" | "excel" = "text";
-        if (fileName && fileData) {
-          const buffer = Buffer.from(fileData, "base64");
-          const path = `reports/${Date.now()}-${fileName}`;
-          const uploadResult = await storagePut(path, buffer);
-          fileUrl = uploadResult.url;
-          // Determine input type from file extension
-          if (fileName.endsWith(".pdf")) inputType = "pdf";
-          else if (fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) inputType = "excel";
-        }
-        const reportDate = new Date(date);
-        const userId = ctx.user?.id ?? 0;
-        const report = await createReport({
-          localId,
-          userId,
-          reportDate,
-          inputType,
-          rawContent: text ?? null,
-          fileUrl,
-          fileName: fileName ?? null,
-        });
-        if (!report) {
-          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Error al crear el informe" });
-        }
-        const analysisText = text ?? "";
-        const { autoScore, finalScore, criteriaScores, aiSource } = analyzeReport(analysisText);
-        await createScore({
-          reportId: report.id,
-          autoScore,
-          finalScore,
-          criteriaScores: JSON.stringify(criteriaScores),
-          aiSource,
-        });
-        return report;
       }),
   }),
   scores: t.router({
     getByReportId: publicProcedure
       .input(z.object({ reportId: z.number() }))
       .query(async ({ input }) => {
-        return await getScoreByReportId(input.reportId);
+        try {
+          return await getScoreByReportId(input.reportId);
+        } catch (error) {
+          console.error("Error fetching score:", error);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Error al obtener puntuación",
+          });
+        }
       }),
     list: publicProcedure.query(async () => {
-      return await getAllScores();
+      try {
+        const scores = await getAllScores();
+        return scores || [];
+      } catch (error) {
+        console.error("Error fetching scores:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Error al obtener puntuaciones",
+        });
+      }
     }),
   }),
 });
