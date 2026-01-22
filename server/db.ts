@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertUser, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
@@ -156,9 +156,11 @@ export async function createReport(data: {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   const { reports } = await import("../drizzle/schema");
-  await db.insert(reports).values(data);
-  // Fetch the newly created report
-  const result = await db.select().from(reports).where(eq(reports.localId, data.localId)).orderBy(reports.id).limit(1);
+  const insertResult = await db.insert(reports).values(data);
+  console.log("[DB] createReport - Insert result:", insertResult);
+  // Fetch the newly created report by getting the latest one
+  const result = await db.select().from(reports).where(eq(reports.localId, data.localId)).orderBy(desc(reports.id)).limit(1);
+  console.log("[DB] createReport - Fetched report:", result);
   return result.length > 0 ? result[0] : null;
 }
 
@@ -193,8 +195,12 @@ export async function createScore(data: {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   const { scores } = await import("../drizzle/schema");
-  const result = await db.insert(scores).values(data);
-  return result;
+  const insertResult = await db.insert(scores).values(data);
+  console.log("[DB] createScore - Insert result:", insertResult);
+  // Fetch the newly created score
+  const result = await db.select().from(scores).where(eq(scores.reportId, data.reportId)).limit(1);
+  console.log("[DB] createScore - Fetched score:", result);
+  return result.length > 0 ? result[0] : null;
 }
 
 export async function updateScore(reportId: number, data: {
