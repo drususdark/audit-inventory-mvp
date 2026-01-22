@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { initTRPC, TRPCError } from "@trpc/server";
+import superjson from "superjson";
 import { createContext } from "./_core/context";
 import type { TrpcContext } from "./_core/context";
 import {
@@ -16,7 +17,9 @@ import {
 } from "./db";
 import { storagePut } from "./storage";
 
-const t = initTRPC.context<TrpcContext>().create();
+const t = initTRPC.context<TrpcContext>().create({
+  transformer: superjson,
+});
 const publicProcedure = t.procedure;
 const protectedProcedure = t.procedure;
 
