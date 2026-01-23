@@ -15,15 +15,10 @@ function createApp(): express.Express {
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
-  // Add error handling middleware
-  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-    console.error("[Express Error]", err);
-    if (res.headersSent) {
-      return next(err);
-    }
-    res.status(err.status || 500).json({
-      error: err.message || "Internal Server Error",
-    });
+  // Add logging middleware
+  app.use((req, res, next) => {
+    console.log(`[API] ${req.method} ${req.path}`);
+    next();
   });
 
   // OAuth callback under /api/oauth/callback
@@ -41,6 +36,7 @@ function createApp(): express.Express {
           path,
           error: error.message,
           code: error.code,
+          stack: error.stack,
         });
       },
     })
@@ -48,6 +44,17 @@ function createApp(): express.Express {
 
   // Serve static files
   serveStatic(app);
+
+  // Error handling middleware (must be last)
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error("[Express Error]", err);
+    if (res.headersSent) {
+      return next(err);
+    }
+    res.status(err.status || 500).json({
+      error: err.message || "Internal Server Error",
+    });
+  });
 
   return app;
 }
