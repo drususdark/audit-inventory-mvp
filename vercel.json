@@ -1,16 +1,6 @@
 {
   "buildCommand": "pnpm build",
   "outputDirectory": "dist/public",
-  "functions": {
-    "api/[...routes].ts": {
-      "memory": 2048,
-      "maxDuration": 30
-    },
-    "api/*.ts": {
-      "memory": 1024,
-      "maxDuration": 10
-    }
-  },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/" }
